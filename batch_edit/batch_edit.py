@@ -7,7 +7,6 @@ Supported Components:
 - Counter: Sequential numbers with padding
 - Specified Text: Custom text strings
 - Column Data: Pull from clip properties (Name, Clip Color, metadata)
-- Change Case: Transform text case (uppercase, lowercase, title case)
 """
 from __future__ import annotations
 from typing import Any
@@ -61,8 +60,6 @@ def get_resolve() -> Any | None:
 class Component(ABC):
     """Abstract base class for name components."""
 
-    is_transformer = False  # True for components that transform previous result
-
     @abstractmethod
     def generate(self, item: Any, index: int, previous_result: str) -> str:
         """
@@ -71,7 +68,7 @@ class Component(ABC):
         Args:
             item: Media pool item
             index: Index of item in selection (for counter)
-            previous_result: Result from previous component (for case transform)
+            previous_result: Result from previous component
 
         Returns:
             String output for this component
@@ -105,6 +102,7 @@ class SpecifiedTextComponent(Component):
 
 
 class ColumnDataComponent(Component):
+
     """Clip property data component."""
 
     def __init__(self, column: str = "Name"):
@@ -125,26 +123,6 @@ class ColumnDataComponent(Component):
                 return value if value else ""
         except Exception:
             return ""
-
-
-class ChangeCaseComponent(Component):
-    """Case transformation component."""
-
-    is_transformer = True  # This component transforms the previous result
-
-    def __init__(self, case_type: str = "No change"):
-        self.case_type = case_type
-
-    def generate(self, item: Any, index: int, previous_result: str) -> str:
-        """Transform case of previous result."""
-        if self.case_type == "UPPERCASE":
-            return previous_result.upper()
-        elif self.case_type == "lowercase":
-            return previous_result.lower()
-        elif self.case_type == "Title Case":
-            return previous_result.title()
-        else:  # "No change"
-            return previous_result
 
 
 class BatchRenamer:
@@ -236,10 +214,6 @@ class BatchRenamer:
                 self.components.append(ColumnDataComponent(
                     column=config.get("column", "Name")
                 ))
-            elif comp_type == "Change Case":
-                self.components.append(ChangeCaseComponent(
-                    case_type=config.get("case_type", "No change")
-                ))
 
     def generate_new_name(self, item: Any, index: int) -> str:
         """
@@ -256,11 +230,7 @@ class BatchRenamer:
 
         for component in self.components:
             component_output = component.generate(item, index, result)
-
-            if component.is_transformer:
-                result = component_output
-            else:
-                result += component_output
+            result += component_output
 
         return result if result else item.GetName()
 
@@ -351,15 +321,13 @@ class BatchEditDialog:
     MAX_COMPONENTS = 10  # Maximum number of component rows
 
     # Component type constants
-    COMPONENT_TYPES = ["Counter", "Specified Text", "Column Data", "Change Case"]
-    CASE_TYPES = ["No change", "UPPERCASE", "lowercase", "Title Case"]
+    COMPONENT_TYPES = ["Counter", "Specified Text", "Column Data"]
 
     # Stack index mapping for component types
     COMPONENT_STACK_INDEX = {
         "Counter": 0,
         "Specified Text": 1,
         "Column Data": 2,
-        "Change Case": 3,
     }
 
     def __init__(self, resolve: Any, renamer: BatchRenamer):
@@ -425,9 +393,6 @@ class BatchEditDialog:
 
                             # Index 2: Column Data dropdown
                             self.ui.ComboBox({"ID": f"ColumnData_{i}", "Weight": 0, "MinimumSize": [200, 0]}),
-
-                            # Index 3: Change Case dropdown
-                            self.ui.ComboBox({"ID": f"ChangeCase_{i}", "Weight": 0, "MinimumSize": [150, 0]}),
                         ]),
                     ]),
                     self.ui.VGap(20),
@@ -562,11 +527,6 @@ class BatchEditDialog:
             if available_columns:
                 column_combo.CurrentIndex = 0
 
-            # Initialize Change Case dropdown
-            case_combo = itm[f"ChangeCase_{i}"]
-            case_combo.AddItems(self.CASE_TYPES)
-            case_combo.CurrentIndex = 0
-
     def on_component_type_changed(self, ev: Any, row_index: int) -> None:
         """Handle component type dropdown change."""
         self.update_component_ui(row_index)
@@ -611,11 +571,6 @@ class BatchEditDialog:
                 configs.append({
                     "type": "Column Data",
                     "column": itm[f"ColumnData_{i}"].CurrentText,
-                })
-            elif comp_type == "Change Case":
-                configs.append({
-                    "type": "Change Case",
-                    "case_type": itm[f"ChangeCase_{i}"].CurrentText,
                 })
 
         return configs
