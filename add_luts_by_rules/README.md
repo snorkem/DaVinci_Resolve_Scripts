@@ -313,7 +313,6 @@ The script is completely self-contained with no external dependencies beyond DaV
 
 ## See Also
 
-- [DaVinci Resolve Scripting API Documentation](../API%20Docs/)
 - [Batch Edit Script](../batch_edit/) - Component-based clip renaming
 - [Find and Replace Scripts](../Find_and_Replace/) - Timeline search and replace
 
