@@ -93,6 +93,13 @@ class MarkerStillExporter:
     # Default album name for temporary captures
     DEFAULT_ALBUM_NAME = "TempMarkerStills"
 
+    # Valid marker colors for filtering
+    VALID_MARKER_COLORS = [
+        "Blue", "Cyan", "Green", "Yellow", "Red", "Pink", "Purple",
+        "Fuchsia", "Rose", "Lavender", "Sky", "Mint", "Lemon",
+        "Sand", "Cocoa", "Cream"
+    ]
+
     def __init__(self, resolve: Any):
         """
         Initialize the exporter.
@@ -157,12 +164,13 @@ class MarkerStillExporter:
 
         return timelines
 
-    def scan_markers(self, timelines: list[Any]) -> list[tuple[Any, list[tuple[int, dict]]]]:
+    def scan_markers(self, timelines: list[Any], color_filter: str | None = None) -> list[tuple[Any, list[tuple[int, dict]]]]:
         """
-        Scan all markers in selected timelines.
+        Scan all markers in selected timelines, optionally filtering by color.
 
         Args:
             timelines: List of timeline objects
+            color_filter: Marker color to filter by (None or "All Markers" = no filtering)
 
         Returns:
             List of (timeline, markers) tuples where markers is a list of (frame_id, marker_data) tuples
@@ -177,7 +185,17 @@ class MarkerStillExporter:
             # Convert markers dict to sorted list of tuples (sorted by frame_id)
             marker_list = sorted(markers.items())
 
-            timeline_markers.append((timeline, marker_list))
+            # Filter by color if specified
+            if color_filter and color_filter != "All Markers":
+                marker_list = [
+                    (frame_id, marker_data)
+                    for frame_id, marker_data in marker_list
+                    if marker_data.get('color', '') == color_filter
+                ]
+
+            # Only add timeline if it has markers after filtering
+            if marker_list:
+                timeline_markers.append((timeline, marker_list))
 
         return timeline_markers
 
@@ -386,41 +404,51 @@ class MarkerStillExporter:
             print(f"WARNING: Failed to cleanup temporary album: {e}")
             return False
 
-    def export_from_markers(self, export_folder: str, format_name: str) -> tuple[int, int]:
+    def export_from_markers(self, export_folder: str, format_name: str, color_filter: str | None = None) -> tuple[int, int, str]:
         """
         Complete workflow: scan, capture, export, cleanup.
 
         Args:
             export_folder: Target export folder
             format_name: Format display name
+            color_filter: Marker color to filter by (None or "All Markers" = no filtering)
 
         Returns:
-            Tuple of (success_count, failure_count)
+            Tuple of (success_count, failure_count, error_message)
+            error_message is empty string on success, contains error description on failure
         """
         try:
             # 1. Get selected timelines
             print("Getting selected timelines...")
             timelines = self.get_selected_timelines()
             if not timelines:
-                return 0, 0
+                return 0, 0, "No timeline items found in selection. Please select timeline items (not clips) from the Media Pool."
 
             print(f"Found {len(timelines)} timeline(s)")
 
-            # 2. Scan markers
+            # 2. Scan markers (with optional color filtering)
             print("Scanning markers...")
-            timeline_markers = self.scan_markers(timelines)
+            timeline_markers = self.scan_markers(timelines, color_filter)
             if not timeline_markers:
-                print("ERROR: No markers found in selected timelines")
-                return 0, 0
+                if color_filter and color_filter != "All Markers":
+                    error_msg = f"No {color_filter} markers found in selected timelines"
+                    print(f"ERROR: {error_msg}")
+                else:
+                    error_msg = "No markers found in selected timelines"
+                    print(f"ERROR: {error_msg}")
+                return 0, 0, error_msg
 
             total_markers = sum(len(markers) for timeline, markers in timeline_markers)
-            print(f"Found {total_markers} marker(s)")
+            if color_filter and color_filter != "All Markers":
+                print(f"Found {total_markers} {color_filter} marker(s)")
+            else:
+                print(f"Found {total_markers} marker(s)")
 
             # 3. Create temporary album
             print("Creating temporary Gallery album...")
             album = self.create_temp_album()
             if not album:
-                return 0, 0
+                return 0, 0, "Could not access Gallery albums"
 
             # 4. Capture stills
             print("Capturing stills from markers...")
@@ -430,7 +458,7 @@ class MarkerStillExporter:
             if not captured_stills:
                 print("ERROR: No stills were captured")
                 self.cleanup()
-                return 0, 0
+                return 0, 0, "No stills were captured. Check that video tracks exist at marker positions."
 
             # 5. Export stills
             print(f"Exporting stills to: {export_folder}")
@@ -440,13 +468,13 @@ class MarkerStillExporter:
             print("Cleaning up temporary album...")
             self.cleanup()
 
-            return success_count, failure_count
+            return success_count, failure_count, ""
 
         except Exception as e:
             print(f"ERROR: Export workflow failed: {e}")
             traceback.print_exc()
             self.cleanup()
-            return 0, 0
+            return 0, 0, f"Export workflow failed: {str(e)}"
 
 
 class StillExporterDialog:
@@ -498,6 +526,17 @@ class StillExporterDialog:
                         }),
 
                         self.ui.VGap(10),
+
+                        # Marker color filter
+                        self.ui.HGroup(
+                            [
+                                self.ui.Label({"Text": "Filter by Color:", "Weight": 0.3}),
+                                self.ui.ComboBox({
+                                    "ID": "ColorFilter",
+                                    "Weight": 0.7,
+                                }),
+                            ]
+                        ),
 
                         # Export format
                         self.ui.HGroup(
@@ -555,6 +594,13 @@ class StillExporterDialog:
             # Get window items
             items = self.window.GetItems()
 
+            # Populate color filter dropdown
+            color_combo = items["ColorFilter"]
+            color_combo.AddItem("All Markers")  # Default option
+            for color in MarkerStillExporter.VALID_MARKER_COLORS:
+                color_combo.AddItem(color)
+            color_combo.SetCurrentIndex(0)  # Default to "All Markers"
+
             # Populate format dropdown
             format_combo = items["ExportFormat"]
             for format_name in MarkerStillExporter.FORMAT_MAP.keys():
@@ -602,6 +648,7 @@ class StillExporterDialog:
         items = self.window.GetItems()
 
         # Validate inputs
+        color_filter = items["ColorFilter"].CurrentText
         export_format = items["ExportFormat"].CurrentText
         export_folder = items["ExportFolder"].GetText()
 
@@ -620,8 +667,8 @@ class StillExporterDialog:
         items["StatusLabel"].SetStyleSheet("QLabel { color: blue; }")
 
         # Execute export
-        success_count, failure_count = self.exporter.export_from_markers(
-            export_folder, export_format
+        success_count, failure_count, error_msg = self.exporter.export_from_markers(
+            export_folder, export_format, color_filter
         )
 
         # Update status with results
@@ -631,7 +678,11 @@ class StillExporterDialog:
             )
             items["StatusLabel"].SetStyleSheet("QLabel { color: green; }")
         else:
-            items["StatusLabel"].SetText(f"ERROR: Export failed ({failure_count} errors)")
+            # Show specific error message if available
+            if error_msg:
+                items["StatusLabel"].SetText(f"ERROR: {error_msg}")
+            else:
+                items["StatusLabel"].SetText(f"ERROR: Export failed ({failure_count} errors)")
             items["StatusLabel"].SetStyleSheet("QLabel { color: red; }")
 
     def on_close_clicked(self, ev):
@@ -718,6 +769,22 @@ def run_console_mode(resolve: Any) -> bool:
         for timeline, markers in timeline_markers:
             print(f"  - {timeline.GetName()}: {len(markers)} marker(s)")
 
+        # Get color filter
+        print("\nMarker Color Filter:")
+        print("  1. All Markers (no filtering)")
+        for i, color in enumerate(MarkerStillExporter.VALID_MARKER_COLORS, 2):
+            print(f"  {i}. {color}")
+
+        color_choice = input(f"Select color filter (1-{len(MarkerStillExporter.VALID_MARKER_COLORS) + 1}): ").strip()
+        try:
+            color_index = int(color_choice) - 1
+            if color_index < 0 or color_index > len(MarkerStillExporter.VALID_MARKER_COLORS):
+                raise ValueError
+            color_filter = "All Markers" if color_index == 0 else MarkerStillExporter.VALID_MARKER_COLORS[color_index - 1]
+        except:
+            print("ERROR: Invalid choice")
+            return False
+
         # Get user input
         print("\nExport Format:")
         formats = list(MarkerStillExporter.FORMAT_MAP.keys())
@@ -741,14 +808,16 @@ def run_console_mode(resolve: Any) -> bool:
 
         # Execute export
         print("\nStarting export...")
-        success_count, failure_count = exporter.export_from_markers(
-            export_folder, format_name
+        success_count, failure_count, error_msg = exporter.export_from_markers(
+            export_folder, format_name, color_filter
         )
 
         # Show results
         print(f"\n=== Export Complete ===")
         print(f"Success: {success_count} still(s)")
         print(f"Failed: {failure_count} still(s)")
+        if error_msg and success_count == 0:
+            print(f"Error: {error_msg}")
 
         return success_count > 0
 

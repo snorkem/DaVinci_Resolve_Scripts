@@ -4,6 +4,7 @@ Automatically export still frames from all markers in selected timelines. Stills
 
 **Key Features:**
 - Export stills at every marker position in selected timelines
+- Filter markers by color (export only Blue, Red, etc. markers)
 - Automatic naming: Timeline name + timecode (HH-MM-SS-FF)
 - Four export formats: JPEG, PNG, TIFF, DPX
 - Gallery-based workflow with automatic still labeling
@@ -94,6 +95,7 @@ cp export_stills_from_timeline_markers.py ~/.local/share/DaVinciResolve/Fusion/S
    - The configuration dialog will appear
 
 3. **Configure Settings:**
+   - **Filter by Color:** Select "All Markers" or a specific color (Blue, Red, etc.) to export only markers of that color
    - **Export Format:** Choose export format (JPEG, PNG, TIFF, DPX)
    - **Export Folder:** Click "Browse..." to select output folder
 
@@ -113,6 +115,7 @@ If UIManager is not available (Resolve Free), the script runs in console mode:
 1. Select timeline items in Media Pool
 2. Run the script from **Workspace → Scripts**
 3. Follow console prompts:
+   - Select color filter (All Markers or specific color)
    - Select export format (1-4)
    - Enter export folder path
 4. Script executes and shows results in console
@@ -176,6 +179,33 @@ Stills are automatically named using the timeline name and record timecode.
 
 ---
 
+## Marker Color Filtering
+
+Filter which markers to export by their color. This is useful when you've color-coded markers for different purposes (e.g., Blue for scenes, Red for VFX shots, Green for pick-ups).
+
+**Available Colors:**
+- All Markers (no filtering - exports all markers)
+- Blue, Cyan, Green, Yellow, Red, Pink, Purple
+- Fuchsia, Rose, Lavender, Sky, Mint, Lemon
+- Sand, Cocoa, Cream
+
+**How it works:**
+1. Select "All Markers" to export stills from every marker in the timeline
+2. Select a specific color (e.g., "Blue") to export stills ONLY from Blue markers
+3. The script scans all markers and filters by exact color match before capturing stills
+
+**Example use cases:**
+- Export only Blue scene markers for reference images
+- Export only Red VFX markers for VFX review plates
+
+**Error feedback:**
+If no markers of the selected color are found, the dialog will display a clear error message:
+- "No Blue markers found in selected timelines"
+- "No Red markers found in selected timelines"
+- etc.
+
+---
+
 ## Workflow Examples
 
 ### Example 1: Export Scene Reference Stills as JPEG
@@ -185,9 +215,10 @@ Stills are automatically named using the timeline name and record timecode.
 **Steps:**
 1. Select timeline in Media Pool
 2. Run script
-3. Choose format: **JPEG**
-4. Select export folder
-5. Click **Export**
+3. Choose color filter: **Blue** (exports only Blue markers)
+4. Choose format: **JPEG**
+5. Select export folder
+6. Click **Export**
 
 **Result:**
 ```
@@ -395,6 +426,11 @@ album.ExportStills([still], folder, "", "png")
 - Selected timelines don't have any markers
 - Add markers to timelines (M key in Edit page)
 
+### "No [Color] markers found in selected timelines"
+- Selected timelines don't have any markers of the specified color
+- Either change the color filter to "All Markers" or a different color
+- Or add markers of that color to your timelines (M key in Edit page, then right-click marker to change color)
+
 ### "Failed to capture still at frame X"
 - Playhead may be at an invalid position
 - Timeline may have gaps or no video at marker position
@@ -425,9 +461,9 @@ album.ExportStills([still], folder, "", "png")
 - Empty album can be manually deleted from Gallery if desired
 
 ### Marker Types
-- Script exports stills from all markers regardless of color or type
-- To export only specific markers, pre-filter markers in timeline
-- Future enhancement: Add marker color filtering
+- Script supports filtering by marker color (see Marker Color Filtering section)
+- Marker duration and custom data are not currently used
+- Only the marker position (frame number) is used for still capture
 
 ---
 
@@ -472,7 +508,7 @@ TIFF and DPX formats can be large (10-50 MB per still). Ensure adequate disk spa
 
 Potential features for future versions:
 
-- [ ] Filter markers by color (export only Blue markers, etc.)
+- [x] Filter markers by color (export only Blue markers, etc.) - **Implemented**
 - [ ] Filter markers by name pattern (regex support)
 - [ ] Custom filename templates with variables
 - [ ] Batch export to multiple formats simultaneously

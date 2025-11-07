@@ -213,7 +213,6 @@ Scripts in this repository are provided as-is for use with DaVinci Resolve.
 
 ### Scripts work from terminal but not from Resolve menu
 - Make sure you copied the scripts to Resolve's Scripts folder (see Option 1 above)
-- Make sure you copied all `.py` files including utility modules
 - Try running `test_resolve_context` from both contexts to compare
 
 For more help:
