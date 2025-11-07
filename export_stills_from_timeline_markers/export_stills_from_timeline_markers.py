@@ -11,9 +11,8 @@ from __future__ import annotations
 from typing import Any
 import sys
 import os
+import traceback
 from timecode import Timecode
-import tkinter as tk
-from tkinter import filedialog
 
 
 def add_resolve_module_path() -> bool:
@@ -91,6 +90,9 @@ class MarkerStillExporter:
         "DPX": ("dpx", "dpx"),
     }
 
+    # Default album name for temporary captures
+    DEFAULT_ALBUM_NAME = "TempMarkerStills"
+
     def __init__(self, resolve: Any):
         """
         Initialize the exporter.
@@ -141,15 +143,17 @@ class MarkerStillExporter:
             return []
 
         # Get actual Timeline objects from project by matching names
-        timelines: list[Any] = []
+        # Build timeline name-to-object map once (O(n) instead of O(n*m))
         timeline_count = self.project.GetTimelineCount()
+        timeline_map: dict[str, Any] = {}
 
-        for timeline_name in timeline_names:
-            for idx in range(1, timeline_count + 1):  # 1-based!
-                timeline = self.project.GetTimelineByIndex(idx)
-                if timeline and timeline.GetName() == timeline_name:
-                    timelines.append(timeline)
-                    break
+        for idx in range(1, timeline_count + 1):  # 1-based!
+            timeline = self.project.GetTimelineByIndex(idx)
+            if timeline:
+                timeline_map[timeline.GetName()] = timeline
+
+        # Lookup timelines by name
+        timelines = [timeline_map[name] for name in timeline_names if name in timeline_map]
 
         return timelines
 
@@ -170,39 +174,41 @@ class MarkerStillExporter:
             if not markers:
                 continue
 
-            # Convert markers dict to sorted list of tuples
-            marker_list = [(frame_id, marker_data) for frame_id, marker_data in markers.items()]
-            marker_list.sort(key=lambda x: x[0])  # Sort by frame_id
+            # Convert markers dict to sorted list of tuples (sorted by frame_id)
+            marker_list = sorted(markers.items())
 
             timeline_markers.append((timeline, marker_list))
 
         return timeline_markers
 
-    def create_temp_album(self, album_name: str = "TempMarkerStills") -> Any | None:
+    def create_temp_album(self, album_name: str | None = None) -> Any | None:
         """
-        Create a temporary Gallery still album.
+        Get the first Gallery still album for capturing stills.
+
+        Note: This method doesn't actually create a new album, it uses the first
+        existing album and sets its label.
 
         Args:
-            album_name: Name for the temporary album
+            album_name: Label to set on the album (defaults to DEFAULT_ALBUM_NAME)
 
         Returns:
             GalleryStillAlbum object or None on failure
         """
-        current_album = self.gallery.GetCurrentStillAlbum()
+        if album_name is None:
+            album_name = self.DEFAULT_ALBUM_NAME
 
-        # Create new album
-        self.temp_album = self.gallery.GetGalleryStillAlbums()[0] if self.gallery.GetGalleryStillAlbums() else None
-
-        if not self.temp_album:
+        # Get first available album
+        albums = self.gallery.GetGalleryStillAlbums()
+        if not albums:
             print("ERROR: Could not access Gallery albums")
             return None
 
-        # Set a unique name for identification
+        self.temp_album = albums[0]
         self.temp_album.SetLabel(album_name)
 
         return self.temp_album
 
-    def frame_to_timecode(self, frame: int, timeline: Any, use_timeline_start: bool = True) -> str:
+    def frame_to_timecode(self, frame: int, timeline: Any, use_timeline_start: bool = True, delimiter: str = "-") -> str:
         """
         Convert frame number to timecode string.
 
@@ -211,9 +217,10 @@ class MarkerStillExporter:
             timeline: Timeline object
             use_timeline_start: If True, use timeline's start timecode as base (for display)
                                If False, convert absolute frame directly (for SetCurrentTimecode)
+            delimiter: Delimiter to use between timecode components (default "-" for filenames, use ":" for API calls)
 
         Returns:
-            Timecode string in format "HH-MM-SS-FF" (using hyphens for filename compatibility)
+            Timecode string in format "HH{delimiter}MM{delimiter}SS{delimiter}FF"
         """
         try:
             # Get timeline properties
@@ -230,8 +237,10 @@ class MarkerStillExporter:
                 # Direct frame to timecode conversion (for SetCurrentTimecode)
                 tc = Timecode(frame_rate, frames=frame)
 
-            # Convert colon format to hyphen format for filenames
-            tc_str = str(tc).replace(":", "-")
+            # Convert to string and apply delimiter
+            tc_str = str(tc)
+            if delimiter != ":":
+                tc_str = tc_str.replace(":", delimiter)
 
             return tc_str
         except Exception as e:
@@ -278,8 +287,8 @@ class MarkerStillExporter:
                     # Move playhead to marker position
                     # Add timeline start frame offset to marker position
                     absolute_frame = frame_id + start_frame
-                    # For setting playhead: use absolute frame without timeline start offset
-                    timeline.SetCurrentTimecode(self.frame_to_timecode(absolute_frame, timeline, use_timeline_start=False).replace("-", ":"))
+                    # For setting playhead: use absolute frame without timeline start offset (needs colon delimiter for API)
+                    timeline.SetCurrentTimecode(self.frame_to_timecode(absolute_frame, timeline, use_timeline_start=False, delimiter=":"))
 
                     # Generate filename (without extension)
                     filename = self.generate_filename(timeline, frame_id)
@@ -435,7 +444,6 @@ class MarkerStillExporter:
 
         except Exception as e:
             print(f"ERROR: Export workflow failed: {e}")
-            import traceback
             traceback.print_exc()
             self.cleanup()
             return 0, 0
@@ -567,12 +575,15 @@ class StillExporterDialog:
 
         except Exception as e:
             print(f"ERROR: Failed to create dialog: {e}")
-            import traceback
             traceback.print_exc()
             return False
 
     def on_browse_clicked(self, ev):
         """Handle Browse button click."""
+        # Import tkinter only when needed (UI mode only)
+        import tkinter as tk
+        from tkinter import filedialog
+
         # Hide tkinter root window
         root = tk.Tk()
         root.withdraw()
@@ -667,7 +678,6 @@ def run_with_ui(resolve: Any) -> bool:
 
     except Exception as e:
         print(f"ERROR: UI mode failed: {e}")
-        import traceback
         traceback.print_exc()
         return False
 
@@ -744,7 +754,6 @@ def run_console_mode(resolve: Any) -> bool:
 
     except Exception as e:
         print(f"ERROR: Console mode failed: {e}")
-        import traceback
         traceback.print_exc()
         return False
 
@@ -762,19 +771,12 @@ def main() -> bool:
         if not resolve:
             return False
 
-        # Get Project Manager
-        project_manager = resolve.GetProjectManager()
-        project = project_manager.GetCurrentProject()
-        if not project:
-            print("ERROR: No project is currently open")
-            return False
-
         # Try UI mode first, fallback to console
+        # Note: Project validation is handled within the exporter methods
         return run_with_ui(resolve)
 
     except Exception as e:
         print(f"ERROR: {e}")
-        import traceback
         traceback.print_exc()
         return False
 

@@ -10,10 +10,30 @@ Python scripts for automating DaVinci Resolve video editing workflows using the 
 
 **No environment setup required!** Scripts work directly from Resolve's menu.
 
-1. **Install scripts to Resolve:**
+1. **Copy scripts to Resolve's Scripts folder:**
+
+   **Mac:**
    ```bash
-   cd /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts
-   ./install_scripts.sh
+   mkdir -p ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
+   cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/Find_and_Replace/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
+   cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/batch_edit/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
+   cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/export_stills_from_timeline_markers/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
+   ```
+
+   **Windows:**
+   ```cmd
+   mkdir "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"
+   copy Find_and_Replace\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
+   copy batch_edit\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
+   copy export_stills_from_timeline_markers\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
+   ```
+
+   **Linux:**
+   ```bash
+   mkdir -p ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
+   cp Find_and_Replace/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
+   cp batch_edit/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
+   cp export_stills_from_timeline_markers/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
    ```
 
 2. **Restart DaVinci Resolve** (if it was running)
@@ -140,16 +160,16 @@ Complete API documentation is available in the `API Docs/` folder:
 
 ## Running Scripts from DaVinci Resolve
 
-To access scripts from Resolve's Workspace menu:
+Scripts can be accessed from Resolve's Workspace menu once installed to the Scripts folder.
 
-1. Copy scripts to your Resolve Scripts folder:
-   - **Mac:** `~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Support/Fusion/Scripts/Edit/`
-   - **Windows:** `%APPDATA%\Roaming\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\`
-   - **Linux:** `$HOME/.local/share/DaVinciResolve/Fusion/Scripts/Edit/`
+**Installation:** See "Option 1: Use Scripts from Resolve's Menu" above for complete installation commands.
 
-2. Restart DaVinci Resolve
+**Scripts folder locations:**
+- **Mac:** `~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Support/Fusion/Scripts/Edit/`
+- **Windows:** `%APPDATA%\Roaming\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\`
+- **Linux:** `$HOME/.local/share/DaVinciResolve/Fusion/Scripts/Edit/`
 
-3. Access from: **Workspace → Scripts → Edit → [Script Name]**
+**Access:** **Workspace → Scripts → Edit → [Script Name]**
 
 ---
 
@@ -192,8 +212,8 @@ Scripts in this repository are provided as-is for use with DaVinci Resolve.
 - This is expected behavior, not an error
 
 ### Scripts work from terminal but not from Resolve menu
-- Make sure you installed scripts using `./install_scripts.sh`
-- Make sure `resolve_utils.py` is in the same folder as other scripts
+- Make sure you copied the scripts to Resolve's Scripts folder (see Option 1 above)
+- Make sure you copied all `.py` files including utility modules
 - Try running `test_resolve_context` from both contexts to compare
 
 For more help:
