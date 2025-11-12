@@ -89,9 +89,13 @@ Then reload: `source ~/.bashrc`
 
 ### 3. Install Required Python Modules
 
+**Important:** DaVinci Resolve uses Python 3.10. Install packages using:
+
 ```bash
-pip install timecode
+python3.10 -m pip install timecode
 ```
+
+This ensures packages are installed to the correct Python version that Resolve uses.
 
 ### 4. Test Your Setup
 
@@ -146,8 +150,8 @@ python3 verify_setup.py
 ## Requirements
 
 - **DaVinci Resolve 16.2+** (Free or Studio)
-- **Python 3.6+** (64-bit)
-- **timecode module** (`pip install timecode`)
+- **Python 3.10** (64-bit) - DaVinci Resolve uses Python 3.10
+- **timecode module** (`python3.10 -m pip install timecode`)
 
 **Note:** UI dialogs only work in DaVinci Resolve Studio. Free version scripts fall back to console output.
 
@@ -218,7 +222,7 @@ Scripts in this repository are provided as-is for use with DaVinci Resolve.
 
 ### Scripts work from terminal but not from Resolve menu
 - Make sure you copied the scripts to Resolve's Scripts folder (see Option 1 above)
-- Check that all required dependencies are installed (`pip install timecode`)
+- Check that all required dependencies are installed (`python3.10 -m pip install timecode`)
 - Restart DaVinci Resolve after copying scripts
 
 For more help:

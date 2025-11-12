@@ -167,6 +167,8 @@ class TimelineMetadataEditor:
                 current_value = str(current_value) if current_value else ""
             else:  # Metadata property
                 metadata = item.GetMetadata()
+                if metadata is None:
+                    return False, 'skipped'
                 current_value = metadata.get(property_name, "")
 
             # Check if find_text exists
