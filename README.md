@@ -17,6 +17,7 @@ Python scripts for automating DaVinci Resolve video editing workflows using the 
    mkdir -p ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
    cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/Find_and_Replace/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
    cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/batch_edit/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
+   cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/add_luts_by_rules/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
    cp -r /Users/Alex/Documents/Python_Projects/DaVinci_Resolve_Scripts/export_stills_from_timeline_markers/*.py ~/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Support/Fusion/Scripts/Edit/
    ```
 
@@ -25,6 +26,7 @@ Python scripts for automating DaVinci Resolve video editing workflows using the 
    mkdir "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"
    copy Find_and_Replace\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
    copy batch_edit\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
+   copy add_luts_by_rules\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
    copy export_stills_from_timeline_markers\*.py "%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\"
    ```
 
@@ -33,6 +35,7 @@ Python scripts for automating DaVinci Resolve video editing workflows using the 
    mkdir -p ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
    cp Find_and_Replace/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
    cp batch_edit/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
+   cp add_luts_by_rules/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
    cp export_stills_from_timeline_markers/*.py ~/.local/share/DaVinciResolve/Fusion/Scripts/Edit/
    ```
 
@@ -94,46 +97,49 @@ pip install timecode
 
 **From Resolve's menu** (no environment setup needed):
 - Open DaVinci Resolve
-- Go to **Workspace → Scripts → Edit → hello_world_dialog** for a simple test
-- Run **check_studio_version** to see if you have Studio or Free version
-- Open a project and timeline, then try **show_timeline_name** from the same menu
+- Open a project with a timeline
+- Go to **Workspace → Scripts → Edit**
+- Try running any of the available scripts (see "Available Scripts" section below)
 
 **From terminal** (requires environment setup):
 ```bash
-cd Find_and_Replace
-python3 test_resolve_context.py
-python3 show_timeline_name.py
+python3 verify_setup.py
 ```
 
 ---
 
 ## Repository Structure
 
-- **`API Docs/`** - Complete DaVinci Resolve API reference documentation
+- **`add_luts_by_rules/`** - Automated LUT application based on clip property rules
+- **`batch_edit/`** - Component-based clip renaming tool
+- **`export_stills_from_timeline_markers/`** - Export still images from timeline markers
 - **`Find_and_Replace/`** - Find and replace tools for timeline editing
+- **`setup_macos_env.sh`** - Automated macOS environment setup script
 - **`verify_setup.py`** - Setup verification script
-- **`CLAUDE.md`** - Developer guide for working with this repository
 
 ---
 
 ## Available Scripts
 
+### Add LUTs by Rules
+- **`add_luts_by_rules/add_luts_by_rules.py`** - Automatically apply or remove LUTs from timeline clips based on property matching rules (codec, resolution, frame rate, clip color)
+- Features dropdown-only interface, exact property matching, and preview before applying changes
+- See [`add_luts_by_rules/README.md`](add_luts_by_rules/README.md) for detailed documentation
+
+### Batch Edit
+- **`batch_edit/batch_edit.py`** - Component-based clip renaming tool for timeline items
+- See [`batch_edit/README.md`](batch_edit/README.md) for detailed documentation
+
+### Export Stills from Timeline Markers
+- **`export_stills_from_timeline_markers/export_stills_from_timeline_markers.py`** - Export still images at timeline marker positions
+- Supports filtering by marker color or exporting all markers
+- See [`export_stills_from_timeline_markers/README.md`](export_stills_from_timeline_markers/README.md) for detailed documentation
+
 ### Find and Replace
-
-Located in `Find_and_Replace/` folder:
-
-- **`resolve_utils.py`** - Common utility module (imported by other scripts)
-- **`hello_world_dialog.py`** - Simple "Hello, World!" dialog test
-- **`check_studio_version.py`** - Detects whether you have Studio or Free version
-- **`show_timeline_name.py`** - Displays the current timeline name in a dialog (self-contained, no dependencies)
-- **`test_resolve_context.py`** - Diagnostic script showing execution context
-- **`test_package_import.py`** - Tests if pip-installed packages are accessible from Resolve
+- **`Find_and_Replace/find_and_replace_selected.py`** - Find and replace text in timeline clips, markers, and metadata
+- See [`Find_and_Replace/README.md`](Find_and_Replace/README.md) for detailed documentation
 
 **All scripts work in both terminal and Resolve menu contexts!**
-
-See [`PACKAGE_INSTALL_TEST.md`](PACKAGE_INSTALL_TEST.md) for testing package installation.
-
-More scripts coming soon!
 
 ---
 
@@ -192,9 +198,8 @@ Scripts in this repository are provided as-is for use with DaVinci Resolve.
 ### "Could not import DaVinciResolveScript module"
 
 **From Resolve's menu:**
-- This shouldn't happen! Scripts use `resolve_utils.py` which handles module paths automatically
-- Try running `test_resolve_context` from Resolve's menu to diagnose
-- Make sure you copied `resolve_utils.py` along with other scripts
+- This shouldn't happen! Scripts handle module paths automatically
+- Make sure you copied all scripts to the Scripts folder (see installation instructions)
 
 **From terminal:**
 - Environment variables are not set correctly
@@ -213,8 +218,9 @@ Scripts in this repository are provided as-is for use with DaVinci Resolve.
 
 ### Scripts work from terminal but not from Resolve menu
 - Make sure you copied the scripts to Resolve's Scripts folder (see Option 1 above)
-- Try running `test_resolve_context` from both contexts to compare
+- Check that all required dependencies are installed (`pip install timecode`)
+- Restart DaVinci Resolve after copying scripts
 
 For more help:
 - **From terminal:** Run `python3 verify_setup.py`
-- **From Resolve:** Run **Workspace → Scripts → Edit → test_resolve_context**
+- Check the specific script's README.md for additional requirements
