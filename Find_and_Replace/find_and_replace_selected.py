@@ -136,7 +136,7 @@ class TimelineMetadataEditor:
                 self.metadata_properties = list(metadata.keys())
 
             # Add special editable properties: Name and Clip Color
-            # "Name" uses SetName(), "Clip Color" uses SetClipProperty()
+            # "Name" uses SetName(), "Clip Color" uses SetClipColor()
             self.editable_properties = ["Name", "Clip Color"] + self.metadata_properties
 
         except Exception as e:
@@ -165,11 +165,9 @@ class TimelineMetadataEditor:
                 if current_value is None:
                     current_value = ""
             elif property_name == "Clip Color":
-                current_value = item.GetClipProperty(property_name)
+                current_value = item.GetClipColor()
                 if current_value is None:
                     current_value = ""
-                else:
-                    current_value = str(current_value)
             else:  # Metadata property
                 metadata = item.GetMetadata()
                 if metadata is None:
@@ -185,10 +183,16 @@ class TimelineMetadataEditor:
 
             # Set new value based on property type
             if property_name == "Name":
+                if not hasattr(item, 'SetName'):
+                    return False, 'error'
                 result = item.SetName(new_value)
             elif property_name == "Clip Color":
-                result = item.SetClipProperty(property_name, new_value)
+                if not hasattr(item, 'SetClipColor'):
+                    return False, 'error'
+                result = item.SetClipColor(new_value)
             else:  # Metadata property
+                if not hasattr(item, 'SetMetadata'):
+                    return False, 'error'
                 result = item.SetMetadata(property_name, new_value)
 
             return result, 'modified' if result else 'error'
