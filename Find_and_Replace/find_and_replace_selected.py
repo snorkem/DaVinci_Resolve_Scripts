@@ -145,6 +145,49 @@ class TimelineMetadataEditor:
 
         return True
 
+    def _is_timeline(self, item: Any) -> bool:
+        """
+        Check if MediaPoolItem represents a timeline.
+
+        Args:
+            item: Media pool item to check
+
+        Returns:
+            True if item is a timeline, False otherwise
+        """
+        try:
+            props = item.GetClipProperty()
+            if not props:
+                return False
+            item_type = props.get("Type", "")
+            return "Timeline" in str(item_type) or "Compound" in str(item_type)
+        except Exception:
+            return False
+
+    def _get_timeline_from_item(self, item: Any) -> Any | None:
+        """
+        Convert MediaPoolItem (timeline) to Timeline object.
+
+        Args:
+            item: Media pool item representing a timeline
+
+        Returns:
+            Timeline object if found, None otherwise
+        """
+        try:
+            timeline_name = item.GetName()
+            if not timeline_name:
+                return None
+
+            timeline_count = self.project.GetTimelineCount()
+            for idx in range(1, timeline_count + 1):  # 1-based indexing
+                timeline = self.project.GetTimelineByIndex(idx)
+                if timeline and timeline.GetName() == timeline_name:
+                    return timeline
+            return None
+        except Exception:
+            return None
+
     def _process_item_property(self, item: Any, property_name: str, find_text: str, replace_text: str) -> tuple[bool, str]:
         """
         Process find/replace for a single item property.
@@ -192,10 +235,22 @@ class TimelineMetadataEditor:
 
             # Set new value based on property type
             if property_name == "Name":
-                if not hasattr(item, 'SetName') or not callable(item.SetName):
-                    print(f"  Error: Item does not support SetName() method (timelines/compound clips may be read-only)")
-                    return False, 'error'
-                result = item.SetName(new_value)
+                # Check if this is a timeline - need special handling
+                if self._is_timeline(item):
+                    timeline = self._get_timeline_from_item(item)
+                    if not timeline:
+                        print(f"  Error: Could not convert timeline MediaPoolItem to Timeline object")
+                        return False, 'error'
+                    if not hasattr(timeline, 'SetName') or not callable(timeline.SetName):
+                        print(f"  Error: Timeline does not support SetName() method")
+                        return False, 'error'
+                    result = timeline.SetName(new_value)
+                else:
+                    # Regular clip - use MediaPoolItem.SetName()
+                    if not hasattr(item, 'SetName') or not callable(item.SetName):
+                        print(f"  Error: Item does not support SetName() method")
+                        return False, 'error'
+                    result = item.SetName(new_value)
             elif property_name == "Clip Color":
                 if not hasattr(item, 'SetClipColor') or not callable(item.SetClipColor):
                     print(f"  Error: Item does not support SetClipColor() method")
