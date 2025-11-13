@@ -162,18 +162,21 @@ class TimelineMetadataEditor:
             # Get current value based on property type
             if property_name == "Name":
                 if not hasattr(item, 'GetName') or not callable(item.GetName):
+                    print(f"  Skipped: Item does not support GetName() method")
                     return False, 'skipped'
                 current_value = item.GetName()
                 if current_value is None:
                     current_value = ""
             elif property_name == "Clip Color":
                 if not hasattr(item, 'GetClipColor') or not callable(item.GetClipColor):
+                    print(f"  Skipped: Item does not support GetClipColor() method")
                     return False, 'skipped'
                 current_value = item.GetClipColor()
                 if current_value is None:
                     current_value = ""
             else:  # Metadata property
                 if not hasattr(item, 'GetMetadata') or not callable(item.GetMetadata):
+                    print(f"  Skipped: Item does not support GetMetadata() method")
                     return False, 'skipped'
                 metadata = item.GetMetadata()
                 if metadata is None:
@@ -190,14 +193,17 @@ class TimelineMetadataEditor:
             # Set new value based on property type
             if property_name == "Name":
                 if not hasattr(item, 'SetName') or not callable(item.SetName):
+                    print(f"  Error: Item does not support SetName() method (timelines/compound clips may be read-only)")
                     return False, 'error'
                 result = item.SetName(new_value)
             elif property_name == "Clip Color":
                 if not hasattr(item, 'SetClipColor') or not callable(item.SetClipColor):
+                    print(f"  Error: Item does not support SetClipColor() method")
                     return False, 'error'
                 result = item.SetClipColor(new_value)
             else:  # Metadata property
                 if not hasattr(item, 'SetMetadata') or not callable(item.SetMetadata):
+                    print(f"  Error: Item does not support SetMetadata() method")
                     return False, 'error'
                 result = item.SetMetadata(property_name, new_value)
 
