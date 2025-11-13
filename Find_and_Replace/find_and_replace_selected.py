@@ -162,9 +162,14 @@ class TimelineMetadataEditor:
             # Get current value based on property type
             if property_name == "Name":
                 current_value = item.GetName()
+                if current_value is None:
+                    current_value = ""
             elif property_name == "Clip Color":
                 current_value = item.GetClipProperty(property_name)
-                current_value = str(current_value) if current_value else ""
+                if current_value is None:
+                    current_value = ""
+                else:
+                    current_value = str(current_value)
             else:  # Metadata property
                 metadata = item.GetMetadata()
                 if metadata is None:
