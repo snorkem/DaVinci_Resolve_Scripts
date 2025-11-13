@@ -161,14 +161,20 @@ class TimelineMetadataEditor:
         try:
             # Get current value based on property type
             if property_name == "Name":
+                if not hasattr(item, 'GetName') or not callable(item.GetName):
+                    return False, 'skipped'
                 current_value = item.GetName()
                 if current_value is None:
                     current_value = ""
             elif property_name == "Clip Color":
+                if not hasattr(item, 'GetClipColor') or not callable(item.GetClipColor):
+                    return False, 'skipped'
                 current_value = item.GetClipColor()
                 if current_value is None:
                     current_value = ""
             else:  # Metadata property
+                if not hasattr(item, 'GetMetadata') or not callable(item.GetMetadata):
+                    return False, 'skipped'
                 metadata = item.GetMetadata()
                 if metadata is None:
                     return False, 'skipped'
@@ -183,15 +189,15 @@ class TimelineMetadataEditor:
 
             # Set new value based on property type
             if property_name == "Name":
-                if not hasattr(item, 'SetName'):
+                if not hasattr(item, 'SetName') or not callable(item.SetName):
                     return False, 'error'
                 result = item.SetName(new_value)
             elif property_name == "Clip Color":
-                if not hasattr(item, 'SetClipColor'):
+                if not hasattr(item, 'SetClipColor') or not callable(item.SetClipColor):
                     return False, 'error'
                 result = item.SetClipColor(new_value)
             else:  # Metadata property
-                if not hasattr(item, 'SetMetadata'):
+                if not hasattr(item, 'SetMetadata') or not callable(item.SetMetadata):
                     return False, 'error'
                 result = item.SetMetadata(property_name, new_value)
 
