@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 import sys
 import os
+import glob
 import traceback
 from timecode import Timecode
 
@@ -405,6 +406,8 @@ class MarkerStillExporter:
 
                 if result:
                     success_count += 1
+                    # Remove Resolve's auto-appended ID from filename
+                    self._remove_resolve_id_from_filename(export_folder, filename, extension)
                 else:
                     failure_count += 1
                     print(f"WARNING: Failed to export still '{filename}'")
@@ -414,6 +417,45 @@ class MarkerStillExporter:
                 print(f"ERROR: Failed to export still '{filename}': {e}")
 
         return success_count, failure_count
+
+    def _remove_resolve_id_from_filename(self, export_folder: str, base_filename: str, extension: str) -> bool:
+        """
+        Remove Resolve's auto-appended ID suffix from exported filename.
+
+        Resolve appends an ID like '_1.2.1' before the extension.
+        This method renames the file to remove that suffix.
+
+        Args:
+            export_folder: Directory containing exported file
+            base_filename: Filename without extension (e.g., "Timeline_01-00-00-00")
+            extension: File extension without dot (e.g., "jpg")
+
+        Returns:
+            True if renamed successfully, False otherwise
+        """
+        try:
+            # Find files matching pattern: base_filename_*.extension
+            pattern = os.path.join(export_folder, f"{base_filename}_*.{extension}")
+            matches = glob.glob(pattern)
+
+            if not matches:
+                # File might already have correct name, or export failed
+                return False
+
+            # Take first match (should only be one per export)
+            old_path = matches[0]
+
+            # Build new path without the _ID suffix
+            new_filename = f"{base_filename}.{extension}"
+            new_path = os.path.join(export_folder, new_filename)
+
+            # Rename file
+            os.rename(old_path, new_path)
+            return True
+
+        except Exception as e:
+            print(f"WARNING: Failed to rename file: {e}")
+            return False
 
     def cleanup(self) -> bool:
         """
