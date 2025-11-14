@@ -135,6 +135,7 @@ class BatchRenamer:
         self.selected_items: list[Any] = []
         self.components: list[Component] = []
         self.metadata_properties: list[str] = []
+        self._clip_name_cache: list[str] = []  # Cache clip names by index for performance
 
     def initialize(self) -> bool:
         """Initialize Resolve objects and get selected items."""
@@ -173,6 +174,9 @@ class BatchRenamer:
                 return False
 
             print(f"Found {len(self.selected_items)} selected item(s)")
+
+            # Cache original clip names once (avoids repeated API calls)
+            self._clip_name_cache = [item.GetName() for item in self.selected_items]
 
         except Exception as e:
             print(f"ERROR: Failed to get selected clips: {e}")
@@ -248,7 +252,8 @@ class BatchRenamer:
         preview_list: list[tuple[str, str]] = []
 
         for idx, item in enumerate(self.selected_items):
-            original_name = item.GetName()
+            # Use cached name (avoids repeated API call)
+            original_name = self._clip_name_cache[idx] if idx < len(self._clip_name_cache) else item.GetName()
             new_name = self.generate_new_name(item, idx)
             preview_list.append((original_name, new_name))
 
@@ -279,7 +284,8 @@ class BatchRenamer:
 
             for idx, item in enumerate(self.selected_items):
                 try:
-                    original_name = item.GetName()
+                    # Use cached name (avoids repeated API call)
+                    original_name = self._clip_name_cache[idx] if idx < len(self._clip_name_cache) else item.GetName()
                     new_name = self.generate_new_name(item, idx)
 
                     # Skip if name hasn't changed
@@ -290,6 +296,9 @@ class BatchRenamer:
                     result = item.SetName(new_name)
                     if result:
                         success_count += 1
+                        # Update cache with new name for consistency
+                        if idx < len(self._clip_name_cache):
+                            self._clip_name_cache[idx] = new_name
                         if verbose:
                             print(f"✓ Renamed: '{original_name}' → '{new_name}'")
                     else:
@@ -338,6 +347,137 @@ class BatchEditDialog:
         self.disp = None
         self.window = None
 
+    def _build_component_row(self, i: int) -> list[Any]:
+        """
+        Build UI elements for a single component row.
+
+        Args:
+            i: Component row index
+
+        Returns:
+            List of UI elements for the row
+        """
+        return [
+            self.ui.HGroup([
+                self.ui.CheckBox({"ID": f"EnableComponent_{i}", "Text": "", "Checked": (i == 0), "Weight": 0, "MinimumSize": [25, 0]}),
+                self.ui.HGap(5),
+                self.ui.ComboBox({"ID": f"ComponentType_{i}", "Weight": 0, "MinimumSize": [150, 0]}),
+                self.ui.HGap(8),
+
+                # Stack widget to show only one component type at a time
+                self.ui.Stack({"ID": f"ComponentStack_{i}", "Weight": 1}, [
+                    # Index 0: Counter fields
+                    self.ui.HGroup([
+                        self.ui.HGap(30),
+                        self.ui.Label({"Text": "Start:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
+                        self.ui.HGap(10),
+                        self.ui.SpinBox({"ID": f"CounterStart_{i}", "Value": 1, "Minimum": 0, "Maximum": 9999, "Weight": 0, "MinimumSize": [80, 0]}),
+                        self.ui.HGap(25),
+                        self.ui.Label({"Text": "Padding:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
+                        self.ui.HGap(10),
+                        self.ui.SpinBox({"ID": f"CounterPadding_{i}", "Value": 3, "Minimum": 1, "Maximum": 10, "Weight": 0, "MinimumSize": [80, 0]}),
+                        self.ui.HGap(40),
+                        self.ui.Label({"Text": "Increment:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
+                        self.ui.HGap(10),
+                        self.ui.SpinBox({"ID": f"CounterIncrement_{i}", "Value": 1, "Minimum": 1, "Maximum": 100, "Weight": 0, "MinimumSize": [80, 0]}),
+                    ]),
+
+                    # Index 1: Specified Text field
+                    self.ui.LineEdit({"ID": f"SpecifiedText_{i}", "PlaceholderText": "Enter text...", "Weight": 1, "StyleSheet": "QLineEdit { padding: 5px; }"}),
+
+                    # Index 2: Column Data dropdown
+                    self.ui.ComboBox({"ID": f"ColumnData_{i}", "Weight": 0, "MinimumSize": [200, 0]}),
+                ]),
+            ]),
+            self.ui.VGap(20),
+        ]
+
+    def _build_header_section(self, item_count: int) -> list[Any]:
+        """
+        Build UI elements for the header section.
+
+        Args:
+            item_count: Number of selected items
+
+        Returns:
+            List of UI elements for the header
+        """
+        return [
+            self.ui.Label({
+                "Text": f"Build new names for {item_count} selected clip(s)",
+                "Weight": 0,
+                "Font": self.ui.Font({"PixelSize": 14, "Bold": True}),
+            }),
+            self.ui.VGap(15),
+            self.ui.Label({
+                "Text": "Add components to build clip names. Components are applied in order.",
+                "Weight": 0,
+                "StyleSheet": "QLabel { color: #999; }",
+            }),
+            self.ui.VGap(15),
+        ]
+
+    def _build_preview_section(self) -> list[Any]:
+        """
+        Build UI elements for the preview section.
+
+        Returns:
+            List of UI elements for the preview
+        """
+        return [
+            self.ui.Label({
+                "Text": "Preview:",
+                "Weight": 0,
+                "Font": self.ui.Font({"PixelSize": 12, "Bold": True}),
+            }),
+            self.ui.VGap(8),
+            self.ui.TextEdit({
+                "ID": "PreviewText",
+                "ReadOnly": True,
+                "Weight": 0.5,
+                "Font": self.ui.Font({"Family": "Courier", "PixelSize": 11}),
+                "StyleSheet": "QTextEdit { background-color: #2b2b2b; color: #e0e0e0; }",
+            }),
+            self.ui.VGap(15),
+            self.ui.Label({
+                "ID": "StatusLabel",
+                "Text": "Configure components above and click Preview",
+                "Weight": 0,
+                "StyleSheet": "QLabel { color: #666; }",
+            }),
+            self.ui.VGap(15),
+        ]
+
+    def _build_button_section(self) -> list[Any]:
+        """
+        Build UI elements for the button section.
+
+        Returns:
+            List of UI elements for the buttons
+        """
+        return [
+            self.ui.HGroup([
+                self.ui.HGap(0, 1),
+                self.ui.Button({
+                    "ID": "PreviewButton",
+                    "Text": "Preview",
+                    "MinimumSize": [90, 28],
+                }),
+                self.ui.HGap(8),
+                self.ui.Button({
+                    "ID": "ApplyButton",
+                    "Text": "Apply",
+                    "MinimumSize": [90, 28],
+                }),
+                self.ui.HGap(8),
+                self.ui.Button({
+                    "ID": "CloseButton",
+                    "Text": "Close",
+                    "MinimumSize": [90, 28],
+                }),
+            ]),
+        ]
+
     def create_dialog(self) -> bool:
         """Create and show the batch edit dialog."""
         try:
@@ -360,120 +500,23 @@ class BatchEditDialog:
             # Get item count
             item_count = len(self.renamer.selected_items)
 
-            # Build all component rows
+            # Build all component rows using helper method
             component_rows = []
             for i in range(self.MAX_COMPONENTS):
-                component_rows.extend([
-                    self.ui.HGroup([
-                        self.ui.CheckBox({"ID": f"EnableComponent_{i}", "Text": "", "Checked": (i == 0), "Weight": 0, "MinimumSize": [25, 0]}),
-                        self.ui.HGap(5),
-                        self.ui.ComboBox({"ID": f"ComponentType_{i}", "Weight": 0, "MinimumSize": [150, 0]}),
-                        self.ui.HGap(8),
+                component_rows.extend(self._build_component_row(i))
 
-                        # Stack widget to show only one component type at a time
-                        self.ui.Stack({"ID": f"ComponentStack_{i}", "Weight": 1}, [
-                            # Index 0: Counter fields
-                            self.ui.HGroup([
-                                self.ui.HGap(30),
-                                self.ui.Label({"Text": "Start:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
-                                self.ui.HGap(10),
-                                self.ui.SpinBox({"ID": f"CounterStart_{i}", "Value": 1, "Minimum": 0, "Maximum": 9999, "Weight": 0, "MinimumSize": [80, 0]}),
-                                self.ui.HGap(25),
-                                self.ui.Label({"Text": "Padding:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
-                                self.ui.HGap(10),
-                                self.ui.SpinBox({"ID": f"CounterPadding_{i}", "Value": 3, "Minimum": 1, "Maximum": 10, "Weight": 0, "MinimumSize": [80, 0]}),
-                                self.ui.HGap(40),
-                                self.ui.Label({"Text": "Increment:", "Weight": 0, "StyleSheet": "QLabel { padding: 0px; }"}),
-                                self.ui.HGap(10),
-                                self.ui.SpinBox({"ID": f"CounterIncrement_{i}", "Value": 1, "Minimum": 1, "Maximum": 100, "Weight": 0, "MinimumSize": [80, 0]}),
-                            ]),
-
-                            # Index 1: Specified Text field
-                            self.ui.LineEdit({"ID": f"SpecifiedText_{i}", "PlaceholderText": "Enter text...", "Weight": 1, "StyleSheet": "QLineEdit { padding: 5px; }"}),
-
-                            # Index 2: Column Data dropdown
-                            self.ui.ComboBox({"ID": f"ColumnData_{i}", "Weight": 0, "MinimumSize": [200, 0]}),
-                        ]),
-                    ]),
-                    self.ui.VGap(20),
-                ])
-
-            # Create dialog window
+            # Create dialog window using helper methods for UI sections
             self.window = self.disp.AddWindow({
                 "WindowTitle": "Batch Edit - Build Name from Components",
                 "ID": "BatchEditDialog",
                 "Geometry": [100, 100, 900, 1100],
             }, [
-                self.ui.VGroup([
-                    # Header
-                    self.ui.Label({
-                        "Text": f"Build new names for {item_count} selected clip(s)",
-                        "Weight": 0,
-                        "Font": self.ui.Font({"PixelSize": 14, "Bold": True}),
-                    }),
-                    self.ui.VGap(15),
-
-                    # Instructions
-                    self.ui.Label({
-                        "Text": "Add components to build clip names. Components are applied in order.",
-                        "Weight": 0,
-                        "StyleSheet": "QLabel { color: #999; }",
-                    }),
-                    self.ui.VGap(15),
-
-                ] + component_rows + [
-
-                    # Preview section
-                    self.ui.Label({
-                        "Text": "Preview:",
-                        "Weight": 0,
-                        "Font": self.ui.Font({"PixelSize": 12, "Bold": True}),
-                    }),
-                    self.ui.VGap(8),
-
-                    # Preview text area
-                    self.ui.TextEdit({
-                        "ID": "PreviewText",
-                        "ReadOnly": True,
-                        "Weight": 0.5,
-                        "Font": self.ui.Font({"Family": "Courier", "PixelSize": 11}),
-                        "StyleSheet": "QTextEdit { background-color: #2b2b2b; color: #e0e0e0; }",
-                    }),
-
-                    self.ui.VGap(15),
-
-                    # Status message
-                    self.ui.Label({
-                        "ID": "StatusLabel",
-                        "Text": "Configure components above and click Preview",
-                        "Weight": 0,
-                        "StyleSheet": "QLabel { color: #666; }",
-                    }),
-
-                    self.ui.VGap(15),
-
-                    # Buttons
-                    self.ui.HGroup([
-                        self.ui.HGap(0, 1),
-                        self.ui.Button({
-                            "ID": "PreviewButton",
-                            "Text": "Preview",
-                            "MinimumSize": [90, 28],
-                        }),
-                        self.ui.HGap(8),
-                        self.ui.Button({
-                            "ID": "ApplyButton",
-                            "Text": "Apply",
-                            "MinimumSize": [90, 28],
-                        }),
-                        self.ui.HGap(8),
-                        self.ui.Button({
-                            "ID": "CloseButton",
-                            "Text": "Close",
-                            "MinimumSize": [90, 28],
-                        }),
-                    ]),
-                ]),
+                self.ui.VGroup(
+                    self._build_header_section(item_count) +
+                    component_rows +
+                    self._build_preview_section() +
+                    self._build_button_section()
+                ),
             ])
 
             # Set up event handlers

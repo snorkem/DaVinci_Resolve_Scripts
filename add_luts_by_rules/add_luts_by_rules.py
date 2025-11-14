@@ -145,10 +145,9 @@ class ProjectScanner:
             # Extract frame rate
             frame_rate = props.get("Frame Rate", "") or props.get("FPS", "")
             if frame_rate:
-                # Normalize frame rate (convert to string if float)
-                if isinstance(frame_rate, (int, float)):
-                    frame_rate = f"{frame_rate:.3f}"
-                self.discovered["frame_rates"].add(str(frame_rate).strip())
+                # Normalize frame rate using helper function
+                normalized_fps = normalize_frame_rate(frame_rate)
+                self.discovered["frame_rates"].add(normalized_fps)
 
             # Extract clip color (from timeline item, not media pool item)
             clip_color = item.GetClipColor()
@@ -172,6 +171,44 @@ class ProjectScanner:
             "frame_rates": sorted(list(self.discovered["frame_rates"])),
             "clip_colors": sorted(list(self.discovered["clip_colors"])),
         }
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def normalize_frame_rate(frame_rate: str | int | float) -> str:
+    """
+    Normalize frame rate to consistent string format.
+
+    Converts numeric frame rates to 3-decimal precision strings and strips
+    trailing zeros for cleaner display (e.g., 24.000 -> "24", 23.976 -> "23.976").
+
+    Args:
+        frame_rate: Frame rate as string, int, or float
+
+    Returns:
+        Normalized frame rate string
+
+    Examples:
+        >>> normalize_frame_rate(24.0)
+        '24'
+        >>> normalize_frame_rate(23.976)
+        '23.976'
+        >>> normalize_frame_rate("29.97")
+        '29.97'
+        >>> normalize_frame_rate(60)
+        '60'
+    """
+    try:
+        # Convert to float if not already
+        fps = float(frame_rate)
+        # Format to 3 decimals, strip trailing zeros and decimal point
+        normalized = f"{fps:.3f}".rstrip('0').rstrip('.')
+        return normalized
+    except (ValueError, TypeError):
+        # Return as-is if can't convert (already a clean string)
+        return str(frame_rate).strip()
 
 
 # ============================================================================
@@ -271,12 +308,9 @@ class FrameRateRule(Rule):
             if not frame_rate:
                 return False
 
-            # Normalize to string
-            if isinstance(frame_rate, (int, float)):
-                frame_rate = f"{frame_rate:.3f}"
-
-            frame_rate_str = str(frame_rate).strip()
-            return frame_rate_str == self.value
+            # Normalize using helper function
+            normalized_fps = normalize_frame_rate(frame_rate)
+            return normalized_fps == self.value
         except Exception:
             return False
 
@@ -287,9 +321,8 @@ class FrameRateRule(Rule):
                 props = media_pool_item.GetClipProperty()
                 frame_rate = props.get("Frame Rate", "") or props.get("FPS", "")
                 if frame_rate:
-                    if isinstance(frame_rate, (int, float)):
-                        return f"{frame_rate:.3f}"
-                    return str(frame_rate).strip()
+                    # Normalize using helper function
+                    return normalize_frame_rate(frame_rate)
         except Exception:
             pass
         return ""

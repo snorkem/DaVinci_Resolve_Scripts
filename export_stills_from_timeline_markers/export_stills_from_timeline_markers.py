@@ -114,6 +114,45 @@ class MarkerStillExporter:
         self.gallery = self.project.GetGallery()
         self.temp_album = None
         self.created_stills = []  # Track stills created by this script
+        self._timeline_cache: dict[str, dict[str, Any]] = {}  # Cache timeline properties for performance
+
+    def _get_timeline_properties(self, timeline: Any) -> dict[str, Any]:
+        """
+        Get and cache timeline properties to avoid repeated API calls.
+
+        Args:
+            timeline: Timeline object
+
+        Returns:
+            Dictionary containing cached timeline properties:
+                - 'frame_rate': Timeline frame rate as float
+                - 'start_tc': Timeline start timecode string
+                - 'start_frame': Timeline start frame
+                - 'timecode_base': Base Timecode object for conversions
+        """
+        timeline_name = timeline.GetName()
+
+        # Return cached properties if available
+        if timeline_name in self._timeline_cache:
+            return self._timeline_cache[timeline_name]
+
+        # Fetch and cache timeline properties
+        frame_rate = float(timeline.GetSetting("timelineFrameRate"))
+        start_tc = timeline.GetStartTimecode()
+        start_frame = timeline.GetStartFrame()
+
+        # Create base Timecode object for this timeline
+        timecode_base = Timecode(frame_rate, start_timecode=start_tc)
+
+        # Cache all properties
+        self._timeline_cache[timeline_name] = {
+            'frame_rate': frame_rate,
+            'start_tc': start_tc,
+            'start_frame': start_frame,
+            'timecode_base': timecode_base,
+        }
+
+        return self._timeline_cache[timeline_name]
 
     def get_selected_timelines(self) -> list[Any]:
         """
@@ -228,7 +267,7 @@ class MarkerStillExporter:
 
     def frame_to_timecode(self, frame: int, timeline: Any, use_timeline_start: bool = True, delimiter: str = "-") -> str:
         """
-        Convert frame number to timecode string.
+        Convert frame number to timecode string using cached timeline properties.
 
         Args:
             frame: Frame number
@@ -241,15 +280,14 @@ class MarkerStillExporter:
             Timecode string in format "HH{delimiter}MM{delimiter}SS{delimiter}FF"
         """
         try:
-            # Get timeline properties
-            frame_rate = float(timeline.GetSetting("timelineFrameRate"))
+            # Get cached timeline properties (avoids repeated API calls)
+            props = self._get_timeline_properties(timeline)
+            frame_rate = props['frame_rate']
 
             if use_timeline_start:
-                # Get timeline's start timecode for proper offset
-                start_tc = timeline.GetStartTimecode()
-                # Create timecode object from start timecode
-                tc = Timecode(frame_rate, start_timecode=start_tc)
-                # Add the marker frame offset to the start timecode
+                # Clone the cached base Timecode object and add frame offset
+                # Note: We create a new instance to avoid mutating the cached object
+                tc = Timecode(frame_rate, start_timecode=props['start_tc'])
                 tc.add_frames(frame)
             else:
                 # Direct frame to timecode conversion (for SetCurrentTimecode)
@@ -297,8 +335,9 @@ class MarkerStillExporter:
             # Set timeline as current
             self.project.SetCurrentTimeline(timeline)
 
-            # Get timeline start frame for offset calculation
-            start_frame = timeline.GetStartFrame()
+            # Get cached timeline properties (avoids repeated API call)
+            props = self._get_timeline_properties(timeline)
+            start_frame = props['start_frame']
 
             for frame_id, marker_data in markers:
                 try:
