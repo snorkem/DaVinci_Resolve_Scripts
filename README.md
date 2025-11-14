@@ -117,7 +117,7 @@ python3 verify_setup.py
 - **`add_luts_by_rules/`** - Automated LUT application based on clip property rules
 - **`batch_edit/`** - Component-based clip renaming tool
 - **`export_stills_from_timeline_markers/`** - Export still images from timeline markers
-- **`Find_and_Replace/`** - Find and replace tools for timeline editing
+- **`Find_and_Replace/`** - Find and replace clip and timeline names in Media Pool
 - **`setup_macos_env.sh`** - Automated macOS environment setup script
 - **`verify_setup.py`** - Setup verification script
 
@@ -131,7 +131,7 @@ python3 verify_setup.py
 - See [`add_luts_by_rules/README.md`](add_luts_by_rules/README.md) for detailed documentation
 
 ### Batch Edit
-- **`batch_edit/batch_edit.py`** - Component-based clip renaming tool for timeline items
+- **`batch_edit/batch_edit.py`** - Component-based clip renaming tool for clips and timelines in the Media Pool
 - See [`batch_edit/README.md`](batch_edit/README.md) for detailed documentation
 
 ### Export Stills from Timeline Markers
