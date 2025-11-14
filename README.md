@@ -183,14 +183,6 @@ Scripts can be accessed from Resolve's Workspace menu once installed to the Scri
 
 ---
 
-## Contributing
-
-See `CLAUDE.md` for development guidelines and architecture details.
-
-**Important:** Always update `CLAUDE.md` when making significant changes or adding new features.
-
----
-
 ## License
 
 Scripts in this repository are provided as-is for use with DaVinci Resolve.
