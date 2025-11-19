@@ -376,6 +376,7 @@ class FindReplaceDialog:
                 self.ui.VGroup([
                     # Item count display
                     self.ui.Label({
+                        "ID": "ItemCountLabel",
                         "Text": items_text,
                         "Weight": 0,
                         "Font": self.ui.Font({"PixelSize": 14, "Bold": True}),
@@ -465,9 +466,47 @@ class FindReplaceDialog:
             traceback.print_exc()
             return False
 
+    def get_selection(self) -> bool:
+        """
+        Refresh the current clip selection from Media Pool and update UI.
+
+        Returns:
+            True if clips are selected, False if no selection
+        """
+        try:
+            # Get currently selected clips from Media Pool
+            current_selection = self.editor.media_pool.GetSelectedClips()
+
+            if not current_selection:
+                # Update status to show no clips selected
+                itm = self.window.GetItems()
+                itm["StatusLabel"].Text = "ERROR: No clips currently selected in Media Pool"
+                itm["StatusLabel"].StyleSheet = "QLabel { color: red; }"
+                return False
+
+            # Update editor's selection
+            self.editor.selected_items = current_selection
+
+            # Update the item count label
+            itm = self.window.GetItems()
+            item_count = len(current_selection)
+            itm["ItemCountLabel"].Text = f"Processing {item_count} selected item(s) from Media Pool"
+
+            return True
+
+        except Exception as e:
+            print(f"ERROR in get_selection: {e}")
+            traceback.print_exc()
+            return False
+
     def on_replace(self, ev: Any) -> None:
         """Handle Replace button click."""
         try:
+            # Refresh selection to get currently selected clips
+            if not self.get_selection():
+                # Error message already set by get_selection()
+                return
+
             itm = self.window.GetItems()
 
             property_name = itm["PropertyCombo"].CurrentText

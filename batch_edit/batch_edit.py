@@ -658,9 +658,46 @@ class BatchEditDialog:
         except Exception as e:
             print(f"ERROR in on_preview: {e}")
 
+    def get_selection(self) -> bool:
+        """
+        Refresh the current clip selection from Media Pool and update UI.
+
+        Returns:
+            True if clips are selected, False if no selection
+        """
+        try:
+            # Get currently selected clips from Media Pool
+            current_selection = self.renamer.media_pool.GetSelectedClips()
+
+            if not current_selection:
+                # Update status to show no clips selected
+                itm = self.window.GetItems()
+                itm["StatusLabel"].Text = "ERROR: No clips currently selected in Media Pool"
+                itm["StatusLabel"].StyleSheet = "QLabel { color: red; }"
+                return False
+
+            # Update renamer's selection
+            self.renamer.selected_items = current_selection
+
+            # Update clip name cache
+            self.renamer._clip_name_cache = [item.GetName() for item in current_selection]
+
+            return True
+
+        except Exception as e:
+            print(f"ERROR in get_selection: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def on_apply(self, ev: Any) -> None:
         """Handle Apply button click."""
         try:
+            # Refresh selection to get currently selected clips
+            if not self.get_selection():
+                # Error message already set by get_selection()
+                return
+
             itm = self.window.GetItems()
             configs = self.get_component_configs()
 
