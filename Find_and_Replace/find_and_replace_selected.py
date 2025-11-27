@@ -125,15 +125,20 @@ class TimelineMetadataEditor:
             print(f"ERROR: Failed to get selected clips: {e}")
             return False
 
-        # Get metadata properties from first item
+        # Get metadata properties from ALL selected items (merged)
         try:
-            first_item = self.selected_items[0]
-            metadata = first_item.GetMetadata()
-            if not metadata:
-                print("WARNING: No metadata available")
+            all_metadata_keys: set[str] = set()
+            for item in self.selected_items:
+                metadata = item.GetMetadata()
+                if metadata:
+                    all_metadata_keys.update(metadata.keys())
+
+            if not all_metadata_keys:
+                print("WARNING: No metadata available from any selected clip")
                 self.metadata_properties = []
             else:
-                self.metadata_properties = list(metadata.keys())
+                # Sort for consistent display order
+                self.metadata_properties = sorted(all_metadata_keys)
 
             # Add special editable properties: Name and Clip Color
             # "Name" uses SetName(), "Clip Color" uses SetClipColor()
@@ -144,6 +149,30 @@ class TimelineMetadataEditor:
             return False
 
         return True
+
+    def refresh_metadata(self) -> list[str] | None:
+        """
+        Refresh metadata properties from current Media Pool selection.
+
+        Returns:
+            Updated list of editable properties, or None if no clips selected
+        """
+        # Get current selection
+        self.selected_items = self.media_pool.GetSelectedClips()
+        if not self.selected_items:
+            return None
+
+        # Rebuild metadata from all selected items
+        all_metadata_keys: set[str] = set()
+        for item in self.selected_items:
+            metadata = item.GetMetadata()
+            if metadata:
+                all_metadata_keys.update(metadata.keys())
+
+        self.metadata_properties = sorted(all_metadata_keys) if all_metadata_keys else []
+        self.editable_properties = ["Name", "Clip Color"] + self.metadata_properties
+
+        return self.editable_properties
 
     def _is_timeline(self, item: Any) -> bool:
         """
@@ -390,6 +419,12 @@ class FindReplaceDialog:
                             "ID": "PropertyCombo",
                             "Weight": 1,
                         }),
+                        self.ui.Button({
+                            "ID": "RefreshButton",
+                            "Text": "Refresh",
+                            "MinimumSize": [80, 30],
+                            "ToolTip": "Refresh properties from current Media Pool selection",
+                        }),
                     ]),
                     self.ui.VGap(5),
 
@@ -453,6 +488,7 @@ class FindReplaceDialog:
             self.window.On.FindReplaceDialog.Close = lambda ev: self.on_close(ev)
             self.window.On.CloseButton.Clicked = lambda ev: self.on_close(ev)
             self.window.On.ReplaceButton.Clicked = lambda ev: self.on_replace(ev)
+            self.window.On.RefreshButton.Clicked = lambda ev: self.on_refresh(ev)
 
             # Show window
             self.window.Show()
@@ -528,6 +564,38 @@ class FindReplaceDialog:
 
         except Exception as e:
             print(f"ERROR in on_replace: {e}")
+            traceback.print_exc()
+
+    def on_refresh(self, ev: Any) -> None:
+        """Handle Refresh button click - update properties from current selection."""
+        try:
+            itm = self.window.GetItems()
+
+            # Refresh metadata from current selection
+            new_properties = self.editor.refresh_metadata()
+
+            if new_properties is None:
+                itm["StatusLabel"].Text = "ERROR: No clips selected in Media Pool"
+                itm["StatusLabel"].StyleSheet = "QLabel { color: red; }"
+                return
+
+            # Update combo box
+            itm["PropertyCombo"].Clear()
+            itm["PropertyCombo"].AddItems(new_properties)
+            if new_properties:
+                itm["PropertyCombo"].SetCurrentText(new_properties[0])
+
+            # Update item count label
+            item_count = len(self.editor.selected_items)
+            itm["ItemCountLabel"].Text = f"Processing {item_count} selected item(s) from Media Pool"
+
+            # Update status
+            metadata_count = len(self.editor.metadata_properties)
+            itm["StatusLabel"].Text = f"Refreshed: {metadata_count} metadata field(s) found"
+            itm["StatusLabel"].StyleSheet = "QLabel { color: green; }"
+
+        except Exception as e:
+            print(f"ERROR in on_refresh: {e}")
             traceback.print_exc()
 
     def on_close(self, ev: Any) -> None:
